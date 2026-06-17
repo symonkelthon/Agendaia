@@ -92,8 +92,8 @@ elif menu == "🗑️ Deletar contato":
 st.markdown("---")
 st.header("📋 Contatos Salvos")
 
-if os.path.exists(ARQUIVO_AGENDA):
-    with open(ARQUIVO_AGENDA, "r", encoding="utf-8") as f:
+if os.path.exists(ARQUIVO_DADOS):
+    with open(ARQUIVO_DADOS, "r", encoding="utf-8") as f:
         agenda = json.load(f)
     
     if agenda:
