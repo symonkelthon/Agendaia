@@ -113,20 +113,23 @@ def mostrar_contatos(lista):
     if len(lista) == 0:
         st.info("Nenhum contato encontrado.")
         return
-    dados_tabela = [{"Nome": c["nome"], "Telefone": c["telefone"], "Email": c["email"]} for c in lista]
+    dados_tabela = [
+        {"Nome": c.get("nome", "Sem nome"), "Telefone": c.get("telefone", "Sem telefone")}
+        for c in lista
+    ]
     st.dataframe(pd.DataFrame(dados_tabela), use_container_width=True)
+
     st.subheader("Fotos dos contatos")
     for contato in lista:
-        with st.expander(contato["nome"]):
+        with st.expander(contato.get("nome", "Contato")):
             coluna_foto, coluna_dados = st.columns([1, 3])
             with coluna_foto:
-                if contato["foto"] and os.path.exists(contato["foto"]):
+                if contato.get("foto") and os.path.exists(contato["foto"]):
                     st.image(contato["foto"], width=100)
                 else:
                     st.write("Sem foto")
             with coluna_dados:
-                st.write(f"**Telefone:** {contato['telefone']}")
-                st.write(f"**Email:** {contato['email']}")
+                st.write(f"**Telefone:** {contato.get('telefone', '-')}")
 
 def interpretar_print(resto, variaveis):
     if resto == "":
@@ -246,7 +249,6 @@ def pagina_agenda():
         with st.form("formulario_adicionar", clear_on_submit=True):
             nome = st.text_input("Nome*")
             telefone = st.text_input("Telefone*")
-            email = st.text_input("Email")
             foto = st.file_uploader("Foto do contato", type=["png", "jpg", "jpeg"])
             enviado = st.form_submit_button("Salvar contato")
         if enviado:
@@ -254,7 +256,7 @@ def pagina_agenda():
                 st.error("Por favor, preencha pelo menos Nome e Telefone.")
             else:
                 caminho_foto = salvar_foto(foto) if foto is not None else ""
-                novo_contato = {"id": uuid.uuid4().hex, "nome": nome.strip(), "telefone": telefone.strip(), "email": email.strip(), "foto": caminho_foto}
+                novo_contato = {"id": uuid.uuid4().hex, "nome": nome.strip(), "telefone": telefone.strip(), "foto": caminho_foto}
                 contatos.append(novo_contato)
                 salvar_dados(ARQUIVO_AGENDA, contatos)
                 st.success(f"Contato '{nome}' adicionado com sucesso!")
@@ -266,7 +268,7 @@ def pagina_agenda():
         st.subheader("Buscar contato por nome")
         termo_busca = st.text_input("Digite o nome do contato")
         if termo_busca.strip()!= "":
-            resultados_busca = [c for c in contatos if termo_busca.strip().lower() in c["nome"].lower()]
+            resultados_busca = [c for c in contatos if termo_busca.strip().lower() in c.get("nome", "").lower()]
             st.write(f"**{len(resultados_busca)} contato(s) encontrado(s):**")
             mostrar_contatos(resultados_busca)
         else:
@@ -276,12 +278,12 @@ def pagina_agenda():
         if len(contatos) == 0:
             st.info("Nenhum contato cadastrado para remover.")
         else:
-            opcoes = {f"{c['nome']} - {c['telefone']}": c["id"] for c in contatos}
+            opcoes = {f"{c.get('nome', 'Sem nome')} - {c.get('telefone', '-')}" : c["id"] for c in contatos}
             escolha = st.selectbox("Selecione o contato que deseja remover:", list(opcoes.keys()))
             if st.button("Remover contato selecionado"):
                 id_escolhido = opcoes[escolha]
                 contato_removido = next(c for c in contatos if c["id"] == id_escolhido)
-                if contato_removido["foto"] and os.path.exists(contato_removido["foto"]):
+                if contato_removido.get("foto") and os.path.exists(contato_removido["foto"]):
                     os.remove(contato_removido["foto"])
                 contatos = [c for c in contatos if c["id"]!= id_escolhido]
                 salvar_dados(ARQUIVO_AGENDA, contatos)
@@ -351,7 +353,7 @@ def pagina_estoque():
                     salvar_dados(ARQUIVO_ESTOQUE, produtos)
                     st.success("Estoque atualizado!")
                     st.rerun()
-                else: # Saída
+                else:
                     if produto["quantidade"] >= quantidade_movimento:
                         produto["quantidade"] -= int(quantidade_movimento)
                         salvar_dados(ARQUIVO_ESTOQUE, produtos)
