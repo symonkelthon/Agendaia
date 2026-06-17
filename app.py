@@ -89,3 +89,24 @@ elif menu == "🗑️ Deletar contato":
             st.rerun()
     else:
         st.info("Não tem contatos pra deletar.")
+st.markdown("---")
+st.header("📋 Contatos Salvos")
+
+if os.path.exists(ARQUIVO_AGENDA):
+    with open(ARQUIVO_AGENDA, "r", encoding="utf-8") as f:
+        agenda = json.load(f)
+    
+    if agenda:
+        for contato in agenda:
+            col1, col2 = st.columns([1, 3])
+            with col1:
+                if contato.get("foto"):
+                    st.image(contato["foto"], width=80)
+            with col2:
+                st.write(f"**{contato['nome']}**")
+                st.write(f"📞 {contato['telefone']}")
+            st.markdown("---")
+    else:
+        st.info("Nenhum contato cadastrado ainda.")
+else:
+    st.info("Salva um contato primeiro!")
