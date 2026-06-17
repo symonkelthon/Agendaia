@@ -110,3 +110,22 @@ if os.path.exists(ARQUIVO_DADOS):
         st.info("Nenhum contato cadastrado ainda.")
 else:
     st.info("Salva um contato primeiro!")
+st.markdown("---")
+st.header("🗑️ Deletar Contato")
+
+if os.path.exists(ARQUIVO_DADOS):
+    with open(ARQUIVO_DADOS, "r", encoding="utf-8") as f:
+        agenda = json.load(f)
+    
+    if agenda:
+        nomes = [c["nome"] for c in agenda]
+        contato_deletar = st.selectbox("Escolhe quem apagar:", nomes)
+        
+        if st.button("Apagar"):
+            agenda = [c for c in agenda if c["nome"] != contato_deletar]
+            with open(ARQUIVO_DADOS, "w", encoding="utf-8") as f:
+                json.dump(agenda, f, ensure_ascii=False, indent=2)
+            st.success(f"Contato {contato_deletar} apagado!")
+            st.rerun()
+    else:
+        st.info("Não tem ninguém pra deletar")
