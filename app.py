@@ -3,6 +3,7 @@ import os
 import json
 import uuid
 from PIL import Image
+import html
 
 # CSS - Estilo com HTML
 st.markdown("""
@@ -45,6 +46,26 @@ st.markdown("""
     margin: 0;
     font-size: 16px;
 }
+.zap-card{
+    background: rgba(255,255,255,0.10);
+    border-left: 4px solid #c084fc;
+    border-radius: 10px;
+    padding: 10px 16px;
+    margin-bottom: 8px;
+    font-family: "Courier New", monospace;
+    color: white;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+}
+.zap-erro{
+    background: rgba(255,90,90,0.18);
+    border-left: 4px solid #ff4d4d;
+    border-radius: 10px;
+    padding: 10px 16px;
+    margin-bottom: 8px;
+    font-family: "Courier New", monospace;
+    color: #ffe0e0;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -71,8 +92,8 @@ def salvar_contatos(contatos):
     with open(ARQUIVO_DADOS, "w", encoding="utf-8") as f:
         json.dump(contatos, f, ensure_ascii=False, indent=4)
 
-# Menu lateral
-menu = st.sidebar.selectbox("Menu", ["➕ Adicionar contato", "📋 Listar contatos", "🗑️ Deletar contato"])
+# Menu lateral - ADICIONEI A MINI LINGUAGEM AQUI
+menu = st.sidebar.selectbox("Menu", ["➕ Adicionar contato", "📋 Listar contatos", "🗑️ Deletar contato", "🗣️ Mini Linguagem"])
 
 contatos = carregar_contatos()
 
@@ -113,7 +134,6 @@ elif menu == "📋 Listar contatos":
                 if contato["foto"] and os.path.exists(contato["foto"]):
                     st.image(contato["foto"], width=100)
             with col2:
-                # HTML do card
                 st.markdown(f"""
                 <div class="contato-card">
                     <h3>{contato['nome']}</h3>
@@ -127,7 +147,6 @@ elif menu == "📋 Listar contatos":
 elif menu == "🗑️ Deletar contato":
     st.header("Deletar contato")
     if contatos:
-        # Deleta por ID pra não apagar duplicata
         opcoes = {f"{c['nome']} - {c['telefone']}": c['id'] for c in contatos}
         escolha = st.selectbox("Escolha o contato pra deletar", list(opcoes.keys()))
 
@@ -139,3 +158,190 @@ elif menu == "🗑️ Deletar contato":
             st.rerun()
     else:
         st.info("Não tem contatos pra deletar.")
+
+# MÓDULO MINI LINGUAGEM ZAPLANG - COLADO AQUI DEPOIS DA AGENDA
+elif menu == "🗣️ Mini Linguagem":
+    st.title("🗣️ Mini Linguagem ZapLang")
+    st.write("Digite comandos ZapLang e execute seu programa.")
+
+    def salvar_programa(nome_programa, codigo):
+        arquivo = "mini_linguagem.json"
+        if not os.path.exists(arquivo):
+            dados = []
+        else:
+            try:
+                with open(arquivo, "r", encoding="utf-8") as f:
+                    dados = json.load(f)
+            except Exception:
+                dados = []
+
+        novo_programa = {
+            "id_uuid": str(uuid.uuid4()),
+            "nome_programa": nome_programa,
+            "codigo": codigo
+        }
+        dados.append(novo_programa)
+
+        with open(arquivo, "w", encoding="utf-8") as f:
+            json.dump(dados, f, indent=4, ensure_ascii=False)
+
+    def interpretar_print(resto, variaveis):
+        if resto == "":
+            return ("erro", 'PRINT sem conteúdo. Use: PRINT "texto" ou PRINT variavel')
+        if resto.startswith('"') and resto.endswith('"') and len(resto) >= 2:
+            texto = resto[1:-1]
+            return ("ok", texto)
+        if resto in variaveis:
+            return ("ok", str(variaveis[resto]))
+        return ("erro", f"Variável '{resto}' não existe.")
+
+    def interpretar(codigo):
+        variaveis = {}
+        resultados = []
+        linhas = codigo.split("\n")
+
+        for numero_linha, linha in enumerate(linhas, start=1):
+            linha = linha.strip()
+            if linha == "":
+                continue
+            try:
+                partes = linha.split()
+                comando = partes[0].upper()
+
+                if comando == "PRINT":
+                    resto = linha[6:].strip()
+                    tipo, texto = interpretar_print(resto, variaveis)
+                    if tipo == "erro":
+                        texto = f"Linha {numero_linha}: {texto}"
+                    resultados.append({"tipo": tipo, "texto": texto})
+
+                elif comando == "SET":
+                    if len(partes) < 3:
+                        resultados.append({
+                            "tipo": "erro",
+                            "texto": f"Linha {numero_linha}: use 'SET nome valor' (faltou o valor)."
+                        })
+                    else:
+                        nome_variavel = partes[1]
+                        try:
+                            valor = int(partes[2])
+                            variaveis[nome_variavel] = valor
+                            resultados.append({"tipo": "ok", "texto": f"{nome_variavel} = {valor}"})
+                        except ValueError:
+                            resultados.append({
+                                "tipo": "erro",
+                                "texto": f"Linha {numero_linha}: '{partes[2]}' não é um número inteiro válido."
+                            })
+
+                elif comando in ("ADD", "SUB"):
+                    if len(partes) < 3:
+                        resultados.append({
+                            "tipo": "erro",
+                            "texto": f"Linha {numero_linha}: use '{comando} nome valor' (faltou o valor)."
+                        })
+                    else:
+                        nome_variavel = partes[1]
+                        if nome_variavel not in variaveis:
+                            resultados.append({
+                                "tipo": "erro",
+                                "texto": f"Linha {numero_linha}: variável '{nome_variavel}' não existe. Use SET antes."
+                            })
+                        else:
+                            try:
+                                valor = int(partes[2])
+                                if comando == "ADD":
+                                    variaveis[nome_variavel] += valor
+                                else:
+                                    variaveis[nome_variavel] -= valor
+                                resultados.append({
+                                    "tipo": "ok",
+                                    "texto": f"{nome_variavel} = {variaveis[nome_variavel]}"
+                                })
+                            except ValueError:
+                                resultados.append({
+                                    "tipo": "erro",
+                                    "texto": f"Linha {numero_linha}: '{partes[2]}' não é um número inteiro válido."
+                                })
+
+                elif comando == "LOOP":
+                    if len(partes) < 3:
+                        resultados.append({
+                            "tipo": "erro",
+                            "texto": f"Linha {numero_linha}: use 'LOOP quantidade comando' (ex: LOOP 3 PRINT \"oi\")."
+                        })
+                    else:
+                        try:
+                            quantidade = int(partes[1])
+                        except ValueError:
+                            resultados.append({
+                                "tipo": "erro",
+                                "texto": f"Linha {numero_linha}: '{partes[1]}' não é uma quantidade válida."
+                            })
+                            continue
+
+                        comando_interno = " ".join(partes[2:])
+                        if comando_interno.upper().startswith("PRINT"):
+                            resto = comando_interno[6:].strip()
+                            for _ in range(quantidade):
+                                tipo, texto = interpretar_print(resto, variaveis)
+                                if tipo == "erro":
+                                    texto = f"Linha {numero_linha}: {texto}"
+                                resultados.append({"tipo": tipo, "texto": texto})
+                        else:
+                            resultados.append({
+                                "tipo": "erro",
+                                "texto": f"Linha {numero_linha}: por enquanto o LOOP só funciona com PRINT."
+                            })
+                else:
+                    resultados.append({
+                        "tipo": "erro",
+                        "texto": f"Linha {numero_linha}: comando desconhecido '{comando}'."
+                    })
+            except Exception as erro:
+                resultados.append({
+                    "tipo": "erro",
+                    "texto": f"Linha {numero_linha}: erro inesperado ({erro})."
+                })
+        return resultados
+
+    def mostrar_resultado(resultados):
+        if len(resultados) == 0:
+            st.info("Nenhuma saída gerada.")
+            return
+        for item in resultados:
+            texto_seguro = html.escape(item["texto"])
+            if item["tipo"] == "erro":
+                st.markdown(f'<div class="zap-erro">⚠️ {texto_seguro}</div>', unsafe_allow_html=True)
+            else:
+                st.markdown(f'<div class="zap-card">➡️ {texto_seguro}</div>', unsafe_allow_html=True)
+
+    nome_programa = st.text_input("Nome do programa:")
+
+    codigo = st.text_area(
+        label="Digite seu código ZapLang:",
+        height=200,
+        value="""SET x 10
+ADD x 5
+PRINT "x vale"
+PRINT x
+LOOP 3 PRINT "oi"
+"""
+    )
+
+    coluna_salvar, coluna_executar = st.columns(2)
+
+    with coluna_salvar:
+        if st.button("💾 Salvar Programa"):
+            if nome_programa.strip():
+                salvar_programa(nome_programa, codigo)
+                st.success("Programa salvo com sucesso!")
+            else:
+                st.warning("Informe um nome para o programa.")
+
+    with coluna_executar:
+        executar_clicado = st.button("▶️ Executar")
+
+    if executar_clicado:
+        st.subheader("Saída")
+        resultado = interpretar(codigo)
+        mostrar_resultado(resultado)
