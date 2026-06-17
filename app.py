@@ -6,7 +6,7 @@ import uuid
 from PIL import Image
 
 # CSS - Linguagem 3: Estilo
-st.markdown("""
+st.markdown(""""
 <style>
 .stApp {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -127,7 +127,7 @@ if os.path.exists(ARQUIVO_DADOS):
                 if contato.get("foto"):
                     st.image(contato["foto"], width=80)
             with col2:
-    st.markdown(f"""
+    st.markdown(f""""
     <div class="contato-card">
         <h3>{contato['nome']}</h3>
         <p>📞 {contato['telefone']}</p>
@@ -139,7 +139,7 @@ if os.path.exists(ARQUIVO_DADOS):
         
         
 
-    """, unsafe_allow_html=True)
+    """", unsafe_allow_html=True)
         
             st.markdown("---")
     else:
