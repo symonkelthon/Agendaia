@@ -5,6 +5,30 @@ import pandas as pd
 import uuid
 from PIL import Image
 
+# CSS - Linguagem 3: Estilo
+st.markdown("""
+<style>
+.stApp {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+.stTextInput input, .stTextInput textarea {
+    border-radius: 10px;
+}
+.stButton>button {
+    background-color: #FF4B4B;
+    color: white;
+    border-radius: 20px;
+    width: 100%;
+}
+.contato-card {
+    background-color: white;
+    padding: 15px;
+    border-radius: 15px;
+    margin: 10px 0;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+</style>
+""", unsafe_allow_html=True)
 # Configurações
 ARQUIVO_DADOS = "agenda.json"
 PASTA_FOTOS = "fotos"
