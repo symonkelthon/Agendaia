@@ -132,14 +132,12 @@ if os.path.exists(ARQUIVO_DADOS):
         <h3>{contato['nome']}</h3>
         <p>📞 {contato['telefone']}</p>
     </div>
-    """, unsafe_allow_html=True)
-            
-    
-    
-        
-        
+    135     """, unsafe_allow_html=True)
+...
 
-    """, unsafe_allow_html=True)
+            
+        
+            """, unsafe_allow_html=True)
         
             st.markdown("---")
     else:
