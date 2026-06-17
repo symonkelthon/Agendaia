@@ -127,8 +127,20 @@ if os.path.exists(ARQUIVO_DADOS):
                 if contato.get("foto"):
                     st.image(contato["foto"], width=80)
             with col2:
-                st.write(f"**{contato['nome']}**")
-                st.write(f"📞 {contato['telefone']}")
+    st.markdown(f"""
+    <div class="contato-card">
+        <h3>{contato['nome']}</h3>
+        <p>📞 {contato['telefone']}</p>
+    </div>
+    """, unsafe_allow_html=True)
+            
+    
+    
+        
+        
+
+    """, unsafe_allow_html=True)
+        
             st.markdown("---")
     else:
         st.info("Nenhum contato cadastrado ainda.")
