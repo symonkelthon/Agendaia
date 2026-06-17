@@ -6,7 +6,7 @@ import uuid
 from PIL import Image
 
 # CSS - Linguagem 3: Estilo
-st.markdown(""""
+st.markdown("""
 <style>
 .stApp {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -139,7 +139,7 @@ if os.path.exists(ARQUIVO_DADOS):
         
         
 
-    """", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
         
             st.markdown("---")
     else:
