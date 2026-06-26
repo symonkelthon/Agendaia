@@ -1,167 +1,218 @@
+"""
+Sistema Master v3.0 Unificado
+Integra: Agenda, Estoque, MINILANG do Gemini.
+Arquitetura: MVC para Streamlit Cloud.
+"""
+
 import streamlit as st
+import io
 
-st.set_page_config(page_title="Sistema Master v2.0", layout="wide")
-st.title("🚀 SISTEMA MASTER v2.0")
-st.caption("Agenda + Estoque + MINILANG | Desenvolvido com Meta AI")
+try:
+    from PIL import Image
+except ImportError:
+    st.error("Dependencia 'pillow' ausente. Crie requirements.txt com: streamlit\npillow")
+    st.stop()
 
-# ========== ESTADO = DADOS FICAM NA MEMÓRIA DO APP ==========
-if 'agenda_db' not in st.session_state:
-    st.session_state.agenda_db = {} # {nome: telefone}
-if 'estoque_db' not in st.session_state:
-    st.session_state.estoque_db = {} # {produto: qtd}
-if 'minilang_vars' not in st.session_state:
-    st.session_state.minilang_vars = {} # {var: valor}
-if 'minilang_prog' not in st.session_state:
-    st.session_state.minilang_prog = [] # [linha1, linha2]
+st.set_page_config(page_title="Sistema Master v3.0", layout="wide")
 
-# ========== BACK-END = REGRA DE NEGÓCIO PURA ==========
-# --- BACK-END AGENDA ---
-def backend_agenda_add(nome, tel):
-    if not nome or not tel: return "Erro: Preencha nome e telefone."
-    st.session_state.agenda_db[nome] = tel
-    return f"Contato '{nome}' salvo."
+# ==============================
+# CAMADA DE ESTADO
+# ==============================
+def init_state():
+    """Inicializa todos os bancos de dados."""
+    if "agenda_db" not in st.session_state:
+        st.session_state.agenda_db = {} # {nome: {"tel": str, "foto": bytes}}
+    if "estoque_db" not in st.session_state:
+        st.session_state.estoque_db = {} # {nome: {"qtd": int, "preco": float}}
+    if "minilang" not in st.session_state:
+        st.session_state.minilang = {"vars": {}, "prog": []} # RAM + Programa
 
-def backend_agenda_remove(nome):
+init_state()
+
+# ==============================
+# CAMADA BACK-END: REGRAS DE NEGOCIO
+# ==============================
+
+# --- 1. Modulo Agenda ---
+def agenda_add(nome: str, tel: str, foto_bytes: bytes | None) -> str:
+    """Adiciona/atualiza contato. Valida nome."""
+    if not nome.strip():
+        return "Erro: Nome nao pode ser vazio."
+    if not tel.strip():
+        return "Erro: Telefone nao pode ser vazio."
+    st.session_state.agenda_db[nome] = {"tel": tel, "foto": foto_bytes}
+    return f"Contato '{nome}' salvo com sucesso."
+
+def agenda_remove(nome: str) -> str:
+    """Remove contato por nome exato."""
     if nome in st.session_state.agenda_db:
         del st.session_state.agenda_db[nome]
-        return f"'{nome}' removido."
-    return f"Erro: '{nome}' não encontrado."
+        return f"Contato '{nome}' removido."
+    return "Erro: Contato nao encontrado."
 
-# --- BACK-END ESTOQUE ---
-def backend_estoque_cadastra(prod, qtd):
-    if not prod: return "Erro: Digite um produto."
-    st.session_state.estoque_db[prod] = int(qtd)
-    return f"Produto '{prod}' cadastrado com {qtd} un."
+def agenda_busca(termo: str) -> dict:
+    """Busca contatos por nome parcial, case-insensitive."""
+    termo = termo.lower()
+    return {n: d for n, d in st.session_state.agenda_db.items() if termo in n.lower()}
 
-def backend_estoque_entrada(prod, qtd):
-    if prod not in st.session_state.estoque_db: return f"Erro: '{prod}' não existe."
-    st.session_state.estoque_db[prod] += int(qtd)
-    return f"Entrada OK. {prod}: {st.session_state.estoque_db[prod]} un"
+def agenda_list() -> dict:
+    return st.session_state.agenda_db
 
-def backend_estoque_saida(prod, qtd):
-    if prod not in st.session_state.estoque_db: return f"Erro: '{prod}' não existe."
-    qtd = int(qtd)
-    if st.session_state.estoque_db[prod] < qtd: return f"Erro: Estoque insuficiente. Tem {st.session_state.estoque_db[prod]}"
-    st.session_state.estoque_db[prod] -= qtd
-    return f"Saída OK. {prod}: {st.session_state.estoque_db[prod]} un"
+# --- 2. Modulo Estoque ---
+def estoque_add(nome: str, qtd: int, preco: float) -> str:
+    """Cadastra ou atualiza produto. Valida campos."""
+    if not nome.strip():
+        return "Erro: Nome do produto nao pode ser vazio."
+    st.session_state.estoque_db[nome] = {"qtd": qtd, "preco": preco}
+    return f"Produto '{nome}' salvo. Qtd: {qtd} | R$ {preco:.2f}"
 
-# --- BACK-END MINILANG ---
-def backend_minilang_add_linha(linha):
-    if linha.strip(): st.session_state.minilang_prog.append(linha.strip())
+def estoque_entrada(nome: str, qtd: int) -> str:
+    if nome not in st.session_state.estoque_db: return "Erro: Produto nao existe."
+    st.session_state.estoque_db[nome]["qtd"] += qtd
+    return f"Entrada OK. '{nome}': {st.session_state.estoque_db[nome]['qtd']} un"
 
-def backend_minilang_executa():
-    saida = []
-    for linha in st.session_state.minilang_prog:
-        partes = linha.split()
-        if not partes: continue
-        cmd = partes[0].upper()
+def estoque_saida(nome: str, qtd: int) -> str:
+    if nome not in st.session_state.estoque_db: return "Erro: Produto nao existe."
+    if st.session_state.estoque_db[nome]["qtd"] < qtd: return "Erro: Saldo insuficiente."
+    st.session_state.estoque_db[nome]["qtd"] -= qtd
+    return f"Saida OK. '{nome}': {st.session_state.estoque_db[nome]['qtd']} un"
 
-        try:
-            if cmd == "GUARDA" and len(partes) == 3:
-                st.session_state.minilang_vars[partes[1]] = int(partes[2])
-                saida.append(f"✓ {partes[1]} = {partes[2]}")
-            elif cmd == "SOMA" and len(partes) == 3:
-                if partes[1] in st.session_state.minilang_vars:
-                    st.session_state.minilang_vars[partes[1]] += int(partes[2])
-                    saida.append(f"✓ {partes[1]} agora = {st.session_state.minilang_vars[partes[1]]}")
-            elif cmd == "TIRA" and len(partes) == 3:
-                if partes[1] in st.session_state.minilang_vars:
-                    st.session_state.minilang_vars[partes[1]] -= int(partes[2])
-                    saida.append(f"✓ {partes[1]} agora = {st.session_state.minilang_vars[partes[1]]}")
-            elif cmd == "VE" and len(partes) == 2:
-                val = st.session_state.minilang_vars.get(partes[1], "VAR NÃO EXISTE")
-                saida.append(f"{partes[1]} = {val}")
-            elif cmd == "APAGA" and len(partes) == 2:
-                if partes[1] in st.session_state.minilang_vars:
-                    del st.session_state.minilang_vars[partes[1]]
-                    saida.append(f"✓ {partes[1]} apagada")
-        except ValueError:
-            saida.append(f"Erro: '{linha}' - Valor precisa ser número inteiro.")
+def estoque_remove(nome: str) -> str:
+    if nome in st.session_state.estoque_db:
+        del st.session_state.estoque_db[nome]
+        return f"Produto '{nome}' removido."
+    return "Erro: Produto nao encontrado."
 
-    st.session_state.minilang_prog = [] # Limpa programa depois de rodar
-    return "\n".join(saida) if saida else "Programa vazio."
+def estoque_busca(nome: str) -> dict | None:
+    return st.session_state.estoque_db.get(nome)
 
-def backend_minilang_limpa():
-    st.session_state.minilang_prog = []
-    st.session_state.minilang_vars = {}
+def estoque_list() -> dict:
+    return st.session_state.estoque_db
 
-# ========== FRONT-END = INTERFACE STREAMLIT ==========
-tab1, tab2, tab3 = st.tabs(["📒 AGENDA", "📦 ESTOQUE", "💻 MINILANG"])
+# --- 3. Modulo MINILANG ---
+def minilang_exec(linha: str) -> str:
+    """Executa 1 linha da MINILANG. Equivale ao executar_comando."""
+    m = st.session_state.minilang
+    partes = linha.strip().split()
+    if not partes: return ""
 
-# --- FRONT AGENDA ---
-with tab1:
+    cmd = partes[0].upper()
+    out = []
+
+    if cmd == "RODA":
+        out.append("--- EXECUTANDO PROGRAMA ---")
+        for cmd_salvo in m["prog"]:
+            out.append(minilang_exec(cmd_salvo))
+        out.append("---------------------------")
+        m["prog"].clear()
+        return "\n".join(out)
+
+    if cmd in ["GUARDA", "SOMA"]:
+        if len(partes) < 3: return "ERRO: Argumentos insuficientes."
+        nome, val_str = partes[1], partes[2]
+        try: val = int(val_str)
+        except ValueError: return "ERRO: O valor precisa ser inteiro."
+
+        m["prog"].append(linha) # Salva no historico
+
+        if cmd == "GUARDA":
+            m["vars"][nome] = val
+            return f"{nome} = {val}"
+        if cmd == "SOMA":
+            if nome not in m["vars"]: return "ERRO: nome nao existe. Use GUARDA."
+            m["vars"][nome] += val
+            return f"{nome} agora = {m['vars'][nome]}"
+
+    if cmd == "MOSTRA":
+        if len(partes) < 2: return "ERRO: Informe o nome da variavel."
+        nome = partes[1]
+        m["prog"].append(linha)
+        if nome not in m["vars"]: return "ERRO: nome nao existe. Use GUARDA."
+        return str(m["vars"][nome])
+
+    return f"ERRO: Comando '{cmd}' invalido."
+
+def minilang_reset() -> None:
+    st.session_state.minilang = {"vars": {}, "prog": []}
+
+# ==============================
+# CAMADA FRONT-END: UI
+# ==============================
+modulo = st.radio("Modulo", ["Agenda", "Estoque", "MINILANG"], horizontal=True, label_visibility="collapsed")
+st.title(f"Sistema Master v3.0 - {modulo}")
+
+# --- UI Agenda ---
+if modulo == "Agenda":
     st.header("Agenda de Contatos")
-    col1, col2 = st.columns(2)
-    with col1:
-        with st.form("form_add_contato"):
-            nome = st.text_input("Nome")
-            tel = st.text_input("Telefone")
-            if st.form_submit_button("Adicionar Contato"):
-                st.success(backend_agenda_add(nome, tel))
-                st.rerun()
-    with col2:
-        nome_remover = st.text_input("Nome para Remover")
-        if st.button("Remover Contato"):
-            st.warning(backend_agenda_remove(nome_remover))
-            st.rerun()
+    with st.form("f_agenda", clear_on_submit=True):
+        c1, c2 = st.columns(2)
+        with c1: nome = st.text_input("Nome"); tel = st.text_input("Telefone")
+        with c2: foto = st.file_uploader("Foto", type=["png", "jpg", "jpeg"])
+        if st.form_submit_button("Adicionar"): st.info(agenda_add(nome, tel, foto.read() if foto else None)); st.rerun()
 
-    st.subheader("Contatos Salvos")
-    st.dataframe(st.session_state.agenda_db, use_container_width=True)
+    c1, c2 = st.columns(2)
+    with c1: nome_del = st.text_input("Remover Nome Exato")
+    if c2.button("Remover"): st.warning(agenda_remove(nome_del)); st.rerun()
 
-# --- FRONT ESTOQUE ---
-with tab2:
+    termo_busca = st.text_input("Buscar por Nome")
+    db = agenda_busca(termo_busca) if termo_busca else agenda_list()
+
+    st.subheader(f"Contatos: {len(db)}")
+    if not db: st.info("Nenhum contato.")
+    for n, d in db.items():
+        with st.container(border=True):
+            c1, c2 = st.columns([1, 4])
+            with c1:
+                if d["foto"]: st.image(io.BytesIO(d["foto"]), width=80)
+            with c2: st.markdown(f"**{n}**"); st.text(f"Tel: {d['tel']}")
+
+# --- UI Estoque ---
+elif modulo == "Estoque":
     st.header("Controle de Estoque")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        with st.form("form_cadastra"):
-            prod = st.text_input("Produto Novo")
-            qtd = st.number_input("Qtd Inicial", 0, 10000, 0)
-            if st.form_submit_button("Cadastrar"):
-                st.success(backend_estoque_cadastra(prod, qtd))
-                st.rerun()
-    with col2:
-        prod_in = st.selectbox("Produto Entrada", options=[""] + list(st.session_state.estoque_db.keys()))
-        qtd_in = st.number_input("Qtd Entrada", 1, 10000, 1)
-        if st.button("Dar Entrada"):
-            st.success(backend_estoque_entrada(prod_in, qtd_in))
-            st.rerun()
-    with col3:
-        prod_out = st.selectbox("Produto Saída", options=[""] + list(st.session_state.estoque_db.keys()), key="out")
-        qtd_out = st.number_input("Qtd Saída", 1, 10000, 1)
-        if st.button("Dar Saída"):
-            st.success(backend_estoque_saida(prod_out, qtd_out))
-            st.rerun()
+    with st.form("f_estoque_add", clear_on_submit=True):
+        c1, c2, c3 = st.columns(3)
+        with c1: prod = st.text_input("Produto")
+        with c2: qtd = st.number_input("Qtd", 0, 10000, 0)
+        with c3: preco = st.number_input("Preco R$", 0.0, 10000.0, 0.0, step=0.01)
+        if st.form_submit_button("Adicionar/Atualizar"): st.info(estoque_add(prod, qtd, preco)); st.rerun()
 
-    st.subheader("Relatório de Estoque")
-    st.dataframe(st.session_state.estoque_db, use_container_width=True)
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        prod_in = st.selectbox("Entrada", [""] + list(estoque_list().keys()))
+        qtd_in = st.number_input("Qtd", 1, 1000, 1, key="qi")
+        if st.button("Dar Entrada"): st.info(estoque_entrada(prod_in, qtd_in)); st.rerun()
+    with c2:
+        prod_out = st.selectbox("Saida", [""] + list(estoque_list().keys()), key="po")
+        qtd_out = st.number_input("Qtd", 1, 1000, 1, key="qo")
+        if st.button("Dar Saida"): st.info(estoque_saida(prod_out, qtd_out)); st.rerun()
+    with c3:
+        prod_del = st.selectbox("Remover", [""] + list(estoque_list().keys()), key="pd")
+        if st.button("Remover"): st.warning(estoque_remove(prod_del)); st.rerun()
 
-# --- FRONT MINILANG ---
-with tab3:
-    st.header("MINILANG v1.0 - Sua Primeira Linguagem")
-    st.info("Comandos: GUARDA x 10 | SOMA x 5 | TIRA x 2 | VE x | APAGA x")
+    nome_busca = st.text_input("Buscar Produto Exato")
+    if nome_busca:
+        res = estoque_busca(nome_busca)
+        st.json(res) if res else st.warning("Produto nao encontrado.")
 
-    col1, col2 = st.columns([3,1])
-    with col1:
-        cmd = st.text_input("Digite o comando:", placeholder="EX: GUARDA vida 100")
-    with col2:
-        st.write("") # espaçamento
-        if st.button("Adicionar Linha"):
-            backend_minilang_add_linha(cmd)
-            st.rerun()
+    st.subheader("Relatorio")
+    st.dataframe(estoque_list(), use_container_width=True)
 
-    st.code("\n".join(st.session_state.minilang_prog) if st.session_state.minilang_prog else "# Programa vazio", language="python")
+# --- UI MINILANG ---
+elif modulo == "MINILANG":
+    st.header("MINILANG v1.0")
+    st.code("Comandos: GUARDA x 10 | SOMA x 5 | MOSTRA x | RODA | SAIR")
 
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("▶️ RODAR PROGRAMA", type="primary"):
-            st.success(backend_minilang_executa())
-    with col2:
-        if st.button("🗑️ LIMPAR TUDO"):
-            backend_minilang_limpa()
-            st.rerun()
+    cmd = st.text_input("Comando", key="cmd_input")
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("Executar Linha", type="primary"):
+            st.success(minilang_exec(cmd)); st.rerun()
+    with c2:
+        if st.button("Limpar Tudo"): minilang_reset(); st.rerun()
 
-    st.subheader("Variáveis na Memória")
-    st.json(st.session_state.minilang_vars)
+    st.text_area("Programa em Lote", value="\n".join(st.session_state.minilang["prog"]), 150, disabled=True)
+    st.subheader("Memoria RAM")
+    st.json(st.session_state.minilang["vars"])
 
 st.divider()
-st.caption("Obs: Os dados são perdidos ao reiniciar o app. V3.0 terá salvamento em.json")
+st.caption("v3.0 | Dados em memoria de sessao.")
