@@ -206,7 +206,7 @@ elif modulo == "MINILANG":
     with c2:
         if st.button("Limpar Tudo"): minilang_reset(); st.rerun()
 
-    st.text_area("Programa em Lote", value="\n".join(st.session_state.minilang["prog"]),height150, disabled=True)
+    st.text_area("Programa em Lote", value="\n".join(st.session_state.minilang["prog"]), height=150, disabled=True)
     st.subheader("Memoria RAM")
     st.json(st.session_state.minilang["vars"])
 
