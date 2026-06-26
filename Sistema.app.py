@@ -1,8 +1,4 @@
-"""
-Sistema Master v3.0 Unificado
-Integra: Agenda, Estoque, MINILANG do Gemini.
-Arquitetura: MVC para Streamlit Cloud.
-"""
+
 
 import streamlit as st
 import io
