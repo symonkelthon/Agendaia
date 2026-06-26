@@ -10,7 +10,7 @@ from PIL import Image
 import io
 
 # Configuracao
-st.set_page_config(page_title="Sistema Master", layout="wide")
+st.set_page_config(page_title="Sistema Master v2.1", layout="wide")
 
 # ==============================
 # CAMADA DE ESTADO
