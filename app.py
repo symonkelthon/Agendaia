@@ -1,132 +1,167 @@
-import streamlit as st, os, json, uuid, html, pandas as pd
+import streamlit as st
 
-st.set_page_config(page_title="Sistema Multi-Função", page_icon="🧩", layout="wide")
+st.set_page_config(page_title="Sistema Master v2.0", layout="wide")
+st.title("🚀 SISTEMA MASTER v2.0")
+st.caption("Agenda + Estoque + MINILANG | Desenvolvido com Meta AI")
 
-# Arquivos e pasta
-ARQUIVOS = {"agenda": "agenda.json", "zaplang": "mini_linguagem.json", "estoque": "estoque.json"}
-PASTA_FOTOS = "fotos"
-os.makedirs(PASTA_FOTOS, exist_ok=True)
+# ========== ESTADO = DADOS FICAM NA MEMÓRIA DO APP ==========
+if 'agenda_db' not in st.session_state:
+    st.session_state.agenda_db = {} # {nome: telefone}
+if 'estoque_db' not in st.session_state:
+    st.session_state.estoque_db = {} # {produto: qtd}
+if 'minilang_vars' not in st.session_state:
+    st.session_state.minilang_vars = {} # {var: valor}
+if 'minilang_prog' not in st.session_state:
+    st.session_state.minilang_prog = [] # [linha1, linha2]
 
-# Cores de cada módulo
-CORES = {
-    "agenda": ("#1f4068", "#1b6ca8", "#2596be"),
-    "zaplang": ("#4b0082", "#6a0dad", "#8a2be2"),
-    "estoque": ("#00c853", "#00acc1", "#1e88e5")
-}
+# ========== BACK-END = REGRA DE NEGÓCIO PURA ==========
+# --- BACK-END AGENDA ---
+def backend_agenda_add(nome, tel):
+    if not nome or not tel: return "Erro: Preencha nome e telefone."
+    st.session_state.agenda_db[nome] = tel
+    return f"Contato '{nome}' salvo."
 
-def carregar(arq): return json.load(open(arq, "r", encoding="utf-8")) if os.path.exists(arq) else []
-def salvar(arq, dados): json.dump(dados, open(arq, "w", encoding="utf-8"), indent=4, ensure_ascii=False)
+def backend_agenda_remove(nome):
+    if nome in st.session_state.agenda_db:
+        del st.session_state.agenda_db[nome]
+        return f"'{nome}' removido."
+    return f"Erro: '{nome}' não encontrado."
 
-def aplicar_css(tema):
-    c1, c2, c3 = CORES[tema]
-    st.markdown(f"<style>.stApp{{background:linear-gradient(135deg,{c1},{c2},{c3})}} h1,h2,p{{color:white!important}}</style>", unsafe_allow_html=True)
+# --- BACK-END ESTOQUE ---
+def backend_estoque_cadastra(prod, qtd):
+    if not prod: return "Erro: Digite um produto."
+    st.session_state.estoque_db[prod] = int(qtd)
+    return f"Produto '{prod}' cadastrado com {qtd} un."
 
-def salvar_foto(foto):
-    nome = f"{uuid.uuid4().hex}{os.path.splitext(foto.name)[1]}"
-    caminho = os.path.join(PASTA_FOTOS, nome)
-    open(caminho, "wb").write(foto.getbuffer())
-    return caminho
+def backend_estoque_entrada(prod, qtd):
+    if prod not in st.session_state.estoque_db: return f"Erro: '{prod}' não existe."
+    st.session_state.estoque_db[prod] += int(qtd)
+    return f"Entrada OK. {prod}: {st.session_state.estoque_db[prod]} un"
 
-# ZAPLANG - Mini linguagem
-def executar_zaplang(codigo):
-    vars, saida = {}, []
-    for i, linha in enumerate(codigo.split("\n"), 1):
-        partes = linha.strip().split()
+def backend_estoque_saida(prod, qtd):
+    if prod not in st.session_state.estoque_db: return f"Erro: '{prod}' não existe."
+    qtd = int(qtd)
+    if st.session_state.estoque_db[prod] < qtd: return f"Erro: Estoque insuficiente. Tem {st.session_state.estoque_db[prod]}"
+    st.session_state.estoque_db[prod] -= qtd
+    return f"Saída OK. {prod}: {st.session_state.estoque_db[prod]} un"
+
+# --- BACK-END MINILANG ---
+def backend_minilang_add_linha(linha):
+    if linha.strip(): st.session_state.minilang_prog.append(linha.strip())
+
+def backend_minilang_executa():
+    saida = []
+    for linha in st.session_state.minilang_prog:
+        partes = linha.split()
         if not partes: continue
         cmd = partes[0].upper()
+
         try:
-            if cmd == "PRINT":
-                resto = linha[6:].strip()
-                if resto.startswith('"'): saida.append(("ok", resto[1:-1]))
-                elif resto in vars: saida.append(("ok", str(vars[resto])))
-                else: saida.append(("erro", f"Linha {i}: variável '{resto}' não existe"))
-            elif cmd == "SET":
-                vars[partes[1]] = int(partes[2])
-                saida.append(("ok", f"{partes[1]} = {partes[2]}"))
-            elif cmd in ("ADD", "SUB"):
-                delta = int(partes[2]) * (1 if cmd=="ADD" else -1)
-                vars[partes[1]] += delta
-                saida.append(("ok", f"{partes[1]} = {vars[partes[1]]}"))
-            elif cmd == "LOOP":
-                for _ in range(int(partes[1])):
-                    saida.append(("ok", linha[linha.find("PRINT")+6:].strip()[1:-1]))
-            else: saida.append(("erro", f"Linha {i}: comando '{cmd}' desconhecido"))
-        except Exception as e:
-            saida.append(("erro", f"Linha {i}: {e}"))
-    return saida
+            if cmd == "GUARDA" and len(partes) == 3:
+                st.session_state.minilang_vars[partes[1]] = int(partes[2])
+                saida.append(f"✓ {partes[1]} = {partes[2]}")
+            elif cmd == "SOMA" and len(partes) == 3:
+                if partes[1] in st.session_state.minilang_vars:
+                    st.session_state.minilang_vars[partes[1]] += int(partes[2])
+                    saida.append(f"✓ {partes[1]} agora = {st.session_state.minilang_vars[partes[1]]}")
+            elif cmd == "TIRA" and len(partes) == 3:
+                if partes[1] in st.session_state.minilang_vars:
+                    st.session_state.minilang_vars[partes[1]] -= int(partes[2])
+                    saida.append(f"✓ {partes[1]} agora = {st.session_state.minilang_vars[partes[1]]}")
+            elif cmd == "VE" and len(partes) == 2:
+                val = st.session_state.minilang_vars.get(partes[1], "VAR NÃO EXISTE")
+                saida.append(f"{partes[1]} = {val}")
+            elif cmd == "APAGA" and len(partes) == 2:
+                if partes[1] in st.session_state.minilang_vars:
+                    del st.session_state.minilang_vars[partes[1]]
+                    saida.append(f"✓ {partes[1]} apagada")
+        except ValueError:
+            saida.append(f"Erro: '{linha}' - Valor precisa ser número inteiro.")
 
-# AGENDA
-def pagina_agenda():
-    aplicar_css("agenda")
-    st.title("📒 AgendaIA")
-    contatos = carregar(ARQUIVOS["agenda"])
-    st.sidebar.write(f"Total: **{len(contatos)}** contatos")
+    st.session_state.minilang_prog = [] # Limpa programa depois de rodar
+    return "\n".join(saida) if saida else "Programa vazio."
 
-    aba = st.tabs(["➕ Adicionar", "📋 Listar", "🔍 Buscar", "🗑️ Remover"])
+def backend_minilang_limpa():
+    st.session_state.minilang_prog = []
+    st.session_state.minilang_vars = {}
 
-    with aba[0]:
-        with st.form("add", clear_on_submit=True):
-            nome, tel, foto = st.text_input("Nome*"), st.text_input("Telefone*"), st.file_uploader("Foto", ["png","jpg"])
-            if st.form_submit_button("Salvar") and nome and tel:
-                contatos.append({"id": uuid.uuid4().hex, "nome": nome, "telefone": tel, "foto": salvar_foto(foto) if foto else ""})
-                salvar(ARQUIVOS["agenda"], contatos); st.success("Salvo!"); st.rerun()
+# ========== FRONT-END = INTERFACE STREAMLIT ==========
+tab1, tab2, tab3 = st.tabs(["📒 AGENDA", "📦 ESTOQUE", "💻 MINILANG"])
 
-    with aba[1]:
-        st.dataframe(pd.DataFrame([{"Nome":c["nome"],"Telefone":c["telefone"]} for c in contatos]), use_container_width=True)
-        for c in contatos:
-            with st.expander(c["nome"]):
-                col1, col2 = st.columns([1,3])
-                col1.image(c["foto"], width=100) if c.get("foto") and os.path.exists(c["foto"]) else col1.write("Sem foto")
-                col2.write(f"**Telefone:** {c['telefone']}")
+# --- FRONT AGENDA ---
+with tab1:
+    st.header("Agenda de Contatos")
+    col1, col2 = st.columns(2)
+    with col1:
+        with st.form("form_add_contato"):
+            nome = st.text_input("Nome")
+            tel = st.text_input("Telefone")
+            if st.form_submit_button("Adicionar Contato"):
+                st.success(backend_agenda_add(nome, tel))
+                st.rerun()
+    with col2:
+        nome_remover = st.text_input("Nome para Remover")
+        if st.button("Remover Contato"):
+            st.warning(backend_agenda_remove(nome_remover))
+            st.rerun()
 
-    with aba[2]:
-        busca = st.text_input("Buscar nome")
-        if busca: st.write(f"**{len([c for c in contatos if busca.lower() in c['nome'].lower()])} encontrado(s):**")
+    st.subheader("Contatos Salvos")
+    st.dataframe(st.session_state.agenda_db, use_container_width=True)
 
-    with aba[3]:
-        if contatos:
-            escolha = st.selectbox("Remover:", [f"{c['nome']} - {c['telefone']}" for c in contatos])
-            if st.button("Remover"):
-                id_rem = contatos[[f"{c['nome']} - {c['telefone']}" for c in contatos].index(escolha)]["id"]
-                contatos = [c for c in contatos if c["id"]!= id_rem]; salvar(ARQUIVOS["agenda"], contatos); st.success("Removido!"); st.rerun()
+# --- FRONT ESTOQUE ---
+with tab2:
+    st.header("Controle de Estoque")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        with st.form("form_cadastra"):
+            prod = st.text_input("Produto Novo")
+            qtd = st.number_input("Qtd Inicial", 0, 10000, 0)
+            if st.form_submit_button("Cadastrar"):
+                st.success(backend_estoque_cadastra(prod, qtd))
+                st.rerun()
+    with col2:
+        prod_in = st.selectbox("Produto Entrada", options=[""] + list(st.session_state.estoque_db.keys()))
+        qtd_in = st.number_input("Qtd Entrada", 1, 10000, 1)
+        if st.button("Dar Entrada"):
+            st.success(backend_estoque_entrada(prod_in, qtd_in))
+            st.rerun()
+    with col3:
+        prod_out = st.selectbox("Produto Saída", options=[""] + list(st.session_state.estoque_db.keys()), key="out")
+        qtd_out = st.number_input("Qtd Saída", 1, 10000, 1)
+        if st.button("Dar Saída"):
+            st.success(backend_estoque_saida(prod_out, qtd_out))
+            st.rerun()
 
-# ESTOQUE
-def pagina_estoque():
-    aplicar_css("estoque")
-    st.title("📦 Estoque")
-    produtos = carregar(ARQUIVOS["estoque"])
-    aba = st.tabs(["➕ Cadastrar", "📋 Listar", "🔄 Movimentar"])
+    st.subheader("Relatório de Estoque")
+    st.dataframe(st.session_state.estoque_db, use_container_width=True)
 
-    with aba[0]:
-        nome, qtd, preco = st.text_input("Nome"), st.number_input("Qtd", 0), st.number_input("Preço", 0.0, step=0.01)
-        if st.button("Salvar") and nome:
-            produtos.append({"id": str(uuid.uuid4()), "nome": nome, "quantidade": int(qtd), "preco": float(preco)})
-            salvar(ARQUIVOS["estoque"], produtos); st.success("Produto salvo!"); st.rerun()
+# --- FRONT MINILANG ---
+with tab3:
+    st.header("MINILANG v1.0 - Sua Primeira Linguagem")
+    st.info("Comandos: GUARDA x 10 | SOMA x 5 | TIRA x 2 | VE x | APAGA x")
 
-    with aba[1]:
-        for p in produtos:
-            alerta = "⚠️ Estoque baixo" if p["quantidade"] < 5 else ""
-            st.markdown(f'<div style="background:white;padding:20px;border-radius:15px;margin:10px 0"><b>{p["nome"]}</b><br>Qtd: {p["quantidade"]}<br>R$ {p["preco"]:.2f}<br>{alerta}</div>', unsafe_allow_html=True)
+    col1, col2 = st.columns([3,1])
+    with col1:
+        cmd = st.text_input("Digite o comando:", placeholder="EX: GUARDA vida 100")
+    with col2:
+        st.write("") # espaçamento
+        if st.button("Adicionar Linha"):
+            backend_minilang_add_linha(cmd)
+            st.rerun()
 
-    with aba[2]:
-        if produtos:
-            prod = st.selectbox("Produto", [p["nome"] for p in produtos])
-            op, qtd = st.radio("Operação", ["Entrada","Saída"]), st.number_input("Qtd", 1)
-            if st.button("Atualizar"):
-                p = next(x for x in produtos if x["nome"]==prod)
-                p["quantidade"] += qtd if op=="Entrada" else -qtd
-                salvar(ARQUIVOS["estoque"], produtos); st.success("Atualizado!"); st.rerun()
+    st.code("\n".join(st.session_state.minilang_prog) if st.session_state.minilang_prog else "# Programa vazio", language="python")
 
-# ZAPLANG
-def pagina_zaplang():
-    aplicar_css("zaplang")
-    st.title("🗣️ ZapLang")
-    codigo = st.text_area("Código:", 'SET x 10\nADD x 5\nPRINT x\nLOOP 3 PRINT "oi"', height=200)
-    if st.button("▶️ Executar"):
-        for tipo, texto in executar_zaplang(codigo):
-            classe = "background:#ff4d4d33" if tipo=="erro" else "background:#ffffff1a"
-            st.markdown(f'<div style="{classe};padding:10px;border-radius:10px;margin:5px 0;color:white">{texto}</div>', unsafe_allow_html=True)
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("▶️ RODAR PROGRAMA", type="primary"):
+            st.success(backend_minilang_executa())
+    with col2:
+        if st.button("🗑️ LIMPAR TUDO"):
+            backend_minilang_limpa()
+            st.rerun()
 
-# Menu
-menu = st.sidebar.selectbox("Menu", ["📒 Agenda", "🗣️ ZapLang", "📦 Estoque"])
-{"📒 Agenda": pagina_agenda, "🗣️ ZapLang": pagina_zaplang, "📦 Estoque": pagina_estoque}[menu]()
+    st.subheader("Variáveis na Memória")
+    st.json(st.session_state.minilang_vars)
+
+st.divider()
+st.caption("Obs: Os dados são perdidos ao reiniciar o app. V3.0 terá salvamento em.json")
