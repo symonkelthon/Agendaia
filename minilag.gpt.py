@@ -1,55 +1,117 @@
 import streamlit as st
 
-st.title("💻 MINILANG v1.0")
+# ============================
+# CONFIGURAÇÃO DA PÁGINA
+# ============================
 
-if 'programa' not in st.session_state:
-    st.session_state.programa = []
-if 'variaveis' not in st.session_state:
-    st.session_state.variaveis = {}
+st.set_page_config(
+    page_title="Mini Linguagem SK",
+    page_icon="💻",
+    layout="wide"
+)
 
-def executar():
-    for linha in st.session_state.programa:
+st.title("💻 Mini Linguagem SK")
+
+st.write(
+    """
+Digite um comando por linha.
+
+Comandos disponíveis:
+
+SET x 10
+ADD x 5
+SUB x 3
+PRINT x
+"""
+)
+
+# ============================
+# ÁREA DE ENTRADA
+# ============================
+
+codigo = st.text_area(
+    "Digite os comandos",
+    height=300,
+    placeholder="""SET x 10
+ADD x 5
+PRINT x"""
+)
+
+# ============================
+# INTERPRETADOR
+# ============================
+
+def executar(codigo):
+
+    variaveis = {}
+
+    saida = []
+
+    linhas = codigo.splitlines()
+
+    for numero_linha, linha in enumerate(linhas, start=1):
+
         linha = linha.strip()
-        if not linha: continue
+
+        if linha == "":
+            continue
+
         partes = linha.split()
+
         comando = partes[0].upper()
 
         try:
-            if comando == "GUARDA":
-                if len(partes)!= 3: st.error(f"Erro de sintaxe: {linha}"); continue
-                st.session_state.variaveis[partes[1]] = int(partes[2])
-            elif comando == "SOMA":
-                st.session_state.variaveis[partes[1]] += int(partes[2])
-            elif comando == "TIRA":
-                st.session_state.variaveis[partes[1]] -= int(partes[2])
-            elif comando == "VE":
-                st.write(f"{partes[1]} = {st.session_state.variaveis[partes[1]]}")
-            elif comando == "APAGA":
-                del st.session_state.variaveis[partes[1]]
-            else:
-                st.warning(f"Comando desconhecido: {comando}")
-        except KeyError:
-            st.error(f"Erro: Variável '{partes[1]}' não existe")
-        except ValueError:
-            st.error("Erro: valor inválido")
-        except Exception as e:
-            st.error(f"Erro: {e}")
 
-col1, col2 = st.columns(2)
+            if comando == "SET":
 
-with col1:
-    st.subheader("Editor")
-    codigo = st.text_area("Escreva seu programa", height=250,
-                          value="\n".join(st.session_state.programa))
-    if st.button("RODA ▶️"):
-        st.session_state.programa = codigo.splitlines()
-        executar()
-    if st.button("Limpar Programa"):
-        st.session_state.programa = []
-        st.session_state.variaveis = {}
-        st.rerun()
+                if len(partes) != 3:
+                    saida.append(
+                        f"Linha {numero_linha}: SET inválido."
+                    )
+                    continue
 
-with col2:
-    st.subheader("Variáveis Atuais")
-    st.json(st.session_state.variaveis)
-    st.info("Comandos: GUARDA X 10 | SOMA X 5 | TIRA X 2 | VE X | APAGA X")
+                nome = partes[1]
+
+                valor = int(partes[2])
+
+                variaveis[nome] = valor
+
+            elif comando == "ADD":
+
+                if len(partes) != 3:
+                    saida.append(
+                        f"Linha {numero_linha}: ADD inválido."
+                    )
+                    continue
+
+                nome = partes[1]
+
+                valor = int(partes[2])
+
+                if nome not in variaveis:
+                    saida.append(
+                        f"Linha {numero_linha}: variável '{nome}' não existe."
+                    )
+                    continue
+
+                variaveis[nome] += valor
+
+            elif comando == "SUB":
+
+                if len(partes) != 3:
+                    saida.append(
+                        f"Linha {numero_linha}: SUB inválido."
+                    )
+                    continue
+
+                nome = partes[1]
+
+                valor = int(partes[2])
+
+                if nome not in variaveis:
+                    saida.append(
+                        f"Linha {numero_linha}: variável '{nome}' não existe."
+                    )
+                    continue
+
+                variaveis[nome] -= valor
