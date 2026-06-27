@@ -55,7 +55,6 @@ nome = st.text_input("Nome")
 
 telefone = st.text_input("Telefone")
 
-email = st.text_input("E-mail")
 
 foto = st.file_uploader(
     "Foto",
@@ -86,7 +85,6 @@ if st.button("Salvar contato"):
     novo = {
         "nome": nome,
         "telefone": telefone,
-        "email": email,
         "foto": caminho_foto
     }
 
@@ -162,9 +160,7 @@ else:
                     f"**Telefone:** {contato['telefone']}"
                 )
 
-                st.write(
-                    f"**E-mail:** {contato['email']}"
-                )
+             
 
                 if st.button(
                     "🗑️ Remover",
