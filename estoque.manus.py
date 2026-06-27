@@ -181,8 +181,9 @@ with tab_movimentar:
 # ══════════════════════════════════════════════
 with tab_buscar:
     st.subheader("Pesquisar Produto")
-    termo = st.text_input("Digite o nome do produto para buscar")
+    termo = st.text_input("Digite o nome do produto para buscar").strip()
     if termo:
+        # Busca insensível a maiúsculas/minúsculas no nome do produto
         encontrados = {n: d for n, d in st.session_state.estoque.items() if termo.lower() in n.lower()}
         if encontrados:
             for n, d in encontrados.items():
