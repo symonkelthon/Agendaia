@@ -4,12 +4,22 @@ import streamlit as st
 # CONFIGURAÇÃO
 # ==========================
 
-st.set_page_config(page_title="Sistema de Estoque", layout="wide")
-st.title("📦 Sistema de Estoque")
+st.set_page_config(page_title="Estoque Pro", layout="wide")
+st.title("📦 Sistema de Estoque Completo")
 
-# Inicializa estoque na sessão
+# ==========================
+# ESTOQUE EM MEMÓRIA
+# ==========================
+
 if "estoque" not in st.session_state:
     st.session_state.estoque = []
+
+
+# ==========================
+# CONFIG
+# ==========================
+
+ESTOQUE_MINIMO_ALERTA = 5
 
 
 # ==========================
@@ -28,7 +38,7 @@ def adicionar_produto(nome, quantidade, preco):
         quantidade = int(quantidade)
         preco = float(preco)
     except ValueError:
-        return "Erro: quantidade ou preço inválido"
+        return "Erro: valores inválidos"
 
     produto = {
         "nome": nome,
@@ -39,11 +49,6 @@ def adicionar_produto(nome, quantidade, preco):
     st.session_state.estoque.append(produto)
 
     return "Produto adicionado com sucesso"
-
-
-def listar_produtos():
-
-    return st.session_state.estoque
 
 
 def buscar_produto(nome):
@@ -65,14 +70,70 @@ def remover_produto(nome):
     return False
 
 
+def entrada_estoque(nome, quantidade):
+
+    produto = buscar_produto(nome)
+
+    if not produto:
+        return "Produto não encontrado"
+
+    try:
+        quantidade = int(quantidade)
+    except ValueError:
+        return "Quantidade inválida"
+
+    if quantidade <= 0:
+        return "Quantidade deve ser maior que zero"
+
+    produto["quantidade"] += quantidade
+
+    return "Entrada de estoque realizada"
+
+
+def saida_estoque(nome, quantidade):
+
+    produto = buscar_produto(nome)
+
+    if not produto:
+        return "Produto não encontrado"
+
+    try:
+        quantidade = int(quantidade)
+    except ValueError:
+        return "Quantidade inválida"
+
+    if quantidade <= 0:
+        return "Quantidade deve ser maior que zero"
+
+    if produto["quantidade"] < quantidade:
+        return "Erro: estoque insuficiente"
+
+    produto["quantidade"] -= quantidade
+
+    return "Saída de estoque realizada"
+
+
+def alerta_estoque_baixo(produto):
+
+    return produto["quantidade"] <= ESTOQUE_MINIMO_ALERTA
+
+
 # ==========================
 # MENU
 # ==========================
 
 menu = st.sidebar.selectbox(
     "Menu",
-    ["Adicionar", "Listar", "Buscar", "Remover", "Sair"]
+    [
+        "Adicionar",
+        "Listar",
+        "Buscar",
+        "Entrada",
+        "Saída",
+        "Remover"
+    ]
 )
+
 
 # ==========================
 # ADICIONAR
@@ -82,8 +143,8 @@ if menu == "Adicionar":
 
     st.subheader("➕ Adicionar Produto")
 
-    nome = st.text_input("Nome do produto")
-    quantidade = st.text_input("Quantidade")
+    nome = st.text_input("Nome")
+    quantidade = st.text_input("Quantidade inicial")
     preco = st.text_input("Preço")
 
     if st.button("Salvar"):
@@ -91,21 +152,31 @@ if menu == "Adicionar":
         resultado = adicionar_produto(nome, quantidade, preco)
         st.write(resultado)
 
+
 # ==========================
 # LISTAR
 # ==========================
 
 elif menu == "Listar":
 
-    st.subheader("📋 Lista de Produtos")
+    st.subheader("📋 Produtos em Estoque")
 
-    produtos = listar_produtos()
-
-    if len(produtos) == 0:
+    if len(st.session_state.estoque) == 0:
         st.info("Nenhum produto cadastrado")
     else:
-        for i, p in enumerate(produtos, start=1):
-            st.write(f"{i}. {p['nome']} | Qtd: {p['quantidade']} | Preço: R$ {p['preco']}")
+
+        for p in st.session_state.estoque:
+
+            alerta = alerta_estoque_baixo(p)
+
+            if alerta:
+                st.error(f"⚠ ESTOQUE BAIXO: {p['nome']}")
+
+            st.write(
+                f"**{p['nome']}** | "
+                f"Qtd: {p['quantidade']} | "
+                f"Preço: R$ {p['preco']}"
+            )
 
 
 # ==========================
@@ -116,17 +187,54 @@ elif menu == "Buscar":
 
     st.subheader("🔎 Buscar Produto")
 
-    nome = st.text_input("Digite o nome")
+    nome = st.text_input("Nome")
 
     if st.button("Buscar"):
 
-        resultado = buscar_produto(nome)
+        produto = buscar_produto(nome)
 
-        if resultado:
+        if produto:
             st.success("Produto encontrado")
-            st.write(resultado)
+            st.write(produto)
+
+            if alerta_estoque_baixo(produto):
+                st.warning("⚠ Estoque baixo")
         else:
             st.error("Produto não encontrado")
+
+
+# ==========================
+# ENTRADA
+# ==========================
+
+elif menu == "Entrada":
+
+    st.subheader("📥 Entrada de Estoque")
+
+    nome = st.text_input("Produto")
+    quantidade = st.text_input("Quantidade para entrada")
+
+    if st.button("Adicionar estoque"):
+
+        resultado = entrada_estoque(nome, quantidade)
+        st.write(resultado)
+
+
+# ==========================
+# SAÍDA
+# ==========================
+
+elif menu == "Saída":
+
+    st.subheader("📤 Saída de Estoque")
+
+    nome = st.text_input("Produto")
+    quantidade = st.text_input("Quantidade para saída")
+
+    if st.button("Remover estoque"):
+
+        resultado = saida_estoque(nome, quantidade)
+        st.write(resultado)
 
 
 # ==========================
@@ -137,21 +245,11 @@ elif menu == "Remover":
 
     st.subheader("❌ Remover Produto")
 
-    nome = st.text_input("Digite o nome do produto")
+    nome = st.text_input("Nome")
 
     if st.button("Remover"):
 
-        resultado = remover_produto(nome)
-
-        if resultado:
-            st.success("Produto removido com sucesso")
+        if remover_produto(nome):
+            st.success("Produto removido")
         else:
             st.error("Produto não encontrado")
-
-
-# ==========================
-# SAIR
-# ==========================
-
-elif menu == "Sair":
-    st.warning("Feche a aba do navegador para sair")
