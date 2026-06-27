@@ -115,3 +115,58 @@ def executar(codigo):
                     continue
 
                 variaveis[nome] -= valor
+
+            elif comando == "PRINT":
+
+                if len(partes) != 2:
+                    saida.append(
+                        f"Linha {numero_linha}: PRINT inválido."
+                    )
+                    continue
+
+                nome = partes[1]
+
+                if nome not in variaveis:
+                    saida.append(
+                        f"Linha {numero_linha}: variável '{nome}' não existe."
+                    )
+                else:
+                    saida.append(
+                        f"{nome} = {variaveis[nome]}"
+                    )
+
+            else:
+                saida.append(
+                    f"Linha {numero_linha}: comando '{comando}' inválido."
+                )
+
+        except ValueError:
+            saida.append(
+                f"Linha {numero_linha}: valor inválido (precisa ser número)."
+            )
+
+    return variaveis, saida
+
+
+# ============================
+# BOTÃO RODAR
+# ============================
+
+if st.button("🚀 RODAR"):
+
+    variaveis, saida = executar(codigo)
+
+    st.subheader("📌 Resultado da execução")
+
+    if saida:
+        for linha in saida:
+            st.write(linha)
+
+    st.subheader("📦 Variáveis finais")
+
+    if variaveis:
+        for nome, valor in variaveis.items():
+            st.write(f"{nome} = {valor}")
+    else:
+        st.write("Nenhuma variável criada.")
+
