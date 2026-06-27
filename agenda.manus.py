@@ -47,9 +47,8 @@ def salvar_contatos(contatos: dict) -> None:
 # FUNÇÕES DE NEGÓCIO
 # ─────────────────────────────────────────────
 
-def adicionar_contato(contatos: dict, nome: str, telefone: str,
-                      email: str, foto_base64: str) -> tuple[bool, str]:
-    """Adiciona um novo contato. Retorna (sucesso, mensagem)."""
+def adicionar_contato(contatos: dict, nome: str, telefone: str, foto_base64: str) -> tuple[bool, str]:
+    """Adiciona um novo contato sem e-mail. Retorna (sucesso, mensagem)."""
     nome = nome.strip()
     if not nome:
         return False, "O nome não pode estar vazio."
@@ -74,8 +73,7 @@ def remover_contato(contatos: dict, nome: str) -> tuple[bool, str]:
 
 
 def buscar_contatos(contatos: dict, termo: str) -> dict:
-    """Busca contatos cujo nome contenha o termo (sem distinção de maiúsculas).
-    Retorna um dicionário com os resultados."""
+    """Busca contatos cujo nome ou telefone contenha o termo."""
     termo = termo.strip().lower()
     if not termo:
         return {}
@@ -84,7 +82,6 @@ def buscar_contatos(contatos: dict, termo: str) -> dict:
         for nome, dados in contatos.items()
         if termo in nome.lower()
         or termo in dados.get("telefone", "").lower()
-   
     }
 
 
@@ -120,7 +117,6 @@ def exibir_cartao(nome: str, dados: dict) -> None:
         with col_info:
             st.markdown(f"### {nome}")
             st.markdown(f"📞 **Telefone:** {dados.get('telefone') or '—'}")
-           
 
 
 # ─────────────────────────────────────────────
@@ -158,7 +154,7 @@ with aba_adicionar:
     if enviado:
         foto_b64 = imagem_para_base64(foto_input) if foto_input else ""
         ok, msg = adicionar_contato(
-            st.session_state.contatos, nome_input, telefone_input,  foto_b64
+            st.session_state.contatos, nome_input, telefone_input, foto_b64
         )
         if ok:
             st.success(msg)
@@ -186,7 +182,7 @@ with aba_listar:
 with aba_buscar:
     st.subheader("Buscar contato")
 
-    termo = st.text_input("Digite nome, telefone ", placeholder="Ex: João")
+    termo = st.text_input("Digite nome ou telefone", placeholder="Ex: João")
 
     if termo:
         resultados = buscar_contatos(st.session_state.contatos, termo)
