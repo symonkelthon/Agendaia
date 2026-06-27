@@ -70,7 +70,7 @@ with tab3:
         else:
             st.warning("Produto não encontrado")
 
-# TAB 4: Entrada e Saída de estoque = Atualização de quantidade
+# TAB 4: Entrada e Saída de estoque = Atualização de quantidade [CORRIGIDO]
 with tab4:
     st.subheader("Entrada / Saída de Estoque")
     if st.session_state.estoque:
