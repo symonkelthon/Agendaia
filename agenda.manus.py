@@ -57,7 +57,6 @@ def adicionar_contato(contatos: dict, nome: str, telefone: str,
         return False, f"Já existe um contato com o nome '{nome}'."
     contatos[nome] = {
         "telefone": telefone.strip(),
-        "email": email.strip(),
         "foto": foto_base64
     }
     salvar_contatos(contatos)
@@ -85,7 +84,7 @@ def buscar_contatos(contatos: dict, termo: str) -> dict:
         for nome, dados in contatos.items()
         if termo in nome.lower()
         or termo in dados.get("telefone", "").lower()
-        or termo in dados.get("email", "").lower()
+   
     }
 
 
@@ -121,7 +120,7 @@ def exibir_cartao(nome: str, dados: dict) -> None:
         with col_info:
             st.markdown(f"### {nome}")
             st.markdown(f"📞 **Telefone:** {dados.get('telefone') or '—'}")
-            st.markdown(f"✉️ **E-mail:** {dados.get('email') or '—'}")
+           
 
 
 # ─────────────────────────────────────────────
@@ -151,7 +150,6 @@ with aba_adicionar:
     with st.form("form_adicionar", clear_on_submit=True):
         nome_input    = st.text_input("Nome *", placeholder="Ex: João Silva")
         telefone_input = st.text_input("Telefone", placeholder="Ex: (11) 91234-5678")
-        email_input   = st.text_input("E-mail", placeholder="Ex: joao@email.com")
         foto_input    = st.file_uploader(
             "Foto (opcional)", type=["jpg", "jpeg", "png", "webp"]
         )
@@ -160,7 +158,7 @@ with aba_adicionar:
     if enviado:
         foto_b64 = imagem_para_base64(foto_input) if foto_input else ""
         ok, msg = adicionar_contato(
-            st.session_state.contatos, nome_input, telefone_input, email_input, foto_b64
+            st.session_state.contatos, nome_input, telefone_input,  foto_b64
         )
         if ok:
             st.success(msg)
@@ -188,7 +186,7 @@ with aba_listar:
 with aba_buscar:
     st.subheader("Buscar contato")
 
-    termo = st.text_input("Digite nome, telefone ou e-mail", placeholder="Ex: João")
+    termo = st.text_input("Digite nome, telefone ", placeholder="Ex: João")
 
     if termo:
         resultados = buscar_contatos(st.session_state.contatos, termo)
