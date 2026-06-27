@@ -1,40 +1,105 @@
 import streamlit as st
 
-if "prog" not in st.session_state: st.session_state.prog = []
-if "vars" not in st.session_state: st.session_state.vars = {}
+st.set_page_config(page_title="MiniLang SK", page_icon="⚙️", layout="centered")
 
-def executar():
-    out = []
-    for linha in st.session_state.prog:
-        p = linha.strip().split()
-        if not p: continue
-        cmd = p[0].upper()
+st.title("MiniLang SK - Interpretador de Comandos")
+st.write("Comandos: SET x 10 | ADD x 5 | SUB x 3 | PRINT x | RODAR")
+
+# 1. Estado inicial: dicionário de variáveis e lista de comandos
+if "memoria" not in st.session_state:
+    st.session_state.memoria = {}
+if "comandos" not in st.session_state:
+    st.session_state.comandos = []
+if "saida" not in st.session_state:
+    st.session_state.saida = []
+
+# 2. Função que executa 1 linha de comando
+def executar_linha(linha):
+    partes = linha.strip().split()
+    if not partes:
+        return
+
+    cmd = partes[0].upper()
+
+    if cmd == "SET":
+        if len(partes)!= 3:
+            st.session_state.saida.append("Erro: SET precisa de variavel e valor. Ex: SET x 10")
+            return
+        var, valor = partes[1], partes[2]
         try:
-            if cmd=="GUARDA": st.session_state.vars[p[1]] = int(p[2])
-            elif cmd=="SOMA": st.session_state.vars[p[1]] += int(p[2])
-            elif cmd=="TIRA": st.session_state.vars[p[1]] -= int(p[2])
-            elif cmd=="VE": out.append(f"{p[1]} = {st.session_state.vars[p[1]]}")
-            elif cmd=="APAGA": del st.session_state.vars[p[1]]
-            else: out.append(f"Comando desconhecido: {cmd}")
-        except KeyError: out.append(f"Erro: Variável '{p[1]}' não existe")
-        except: out.append("Erro: valor inválido")
-    return "\n".join(out)
+            st.session_state.memoria[var] = int(valor)
+        except ValueError:
+            st.session_state.saida.append(f"Erro: Valor invalido para SET: {valor}")
 
-st.title("💻 Minilinguagem Meta AI v1.0")
-col1, col2 = st.columns(2)
+    elif cmd == "ADD":
+        if len(partes)!= 3:
+            st.session_state.saida.append("Erro: ADD precisa de variavel e valor. Ex: ADD x 5")
+            return
+        var, valor = partes[1], partes[2]
+        if var not in st.session_state.memoria:
+            st.session_state.saida.append(f"Erro: Variavel '{var}' nao existe")
+            return
+        try:
+            st.session_state.memoria[var] += int(valor)
+        except ValueError:
+            st.session_state.saida.append(f"Erro: Valor invalido para ADD: {valor}")
+
+    elif cmd == "SUB":
+        if len(partes)!= 3:
+            st.session_state.saida.append("Erro: SUB precisa de variavel e valor. Ex: SUB x 3")
+            return
+        var, valor = partes[1], partes[2]
+        if var not in st.session_state.memoria:
+            st.session_state.saida.append(f"Erro: Variavel '{var}' nao existe")
+            return
+        try:
+            st.session_state.memoria[var] -= int(valor)
+        except ValueError:
+            st.session_state.saida.append(f"Erro: Valor invalido para SUB: {valor}")
+
+    elif cmd == "PRINT":
+        if len(partes)!= 2:
+            st.session_state.saida.append("Erro: PRINT precisa de 1 variavel. Ex: PRINT x")
+            return
+        var = partes[1]
+        if var in st.session_state.memoria:
+            st.session_state.saida.append(f"{var} = {st.session_state.memoria[var]}")
+        else:
+            st.session_state.saida.append(f"Erro: Variavel '{var}' nao existe")
+
+    elif cmd == "RODAR":
+        return "RODAR"
+    else:
+        st.session_state.saida.append(f"Erro: Comando desconhecido '{cmd}'")
+
+# 3. Interface Streamlit
+col1, col2 = st.columns([3,1])
 
 with col1:
-    cod = st.text_area("Digite seu programa aqui", value="\n".join(st.session_state.prog), height=220)
-    c1, c2, c3 = st.columns(3)
-    if c1.button("RODAR ▶️"):
-        st.session_state.prog = cod.splitlines()
-        st.code(executar() or "Executado sem saída.")
-    if c2.button("Limpar"):
-        st.session_state.prog = []; st.session_state.vars = {}; st.rerun()
-    if c3.button("Exemplo"):
-        st.session_state.prog = ["GUARDA X 10", "SOMA X 5", "VE X"]; st.rerun()
-
+    cmd_input = st.text_input("Digite um comando:", key="cmd_input", placeholder="Ex: SET x 10")
 with col2:
-    st.subheader("Variáveis")
-    st.json(st.session_state.vars)
-    st.caption("Comandos: GUARDA X 10 | SOMA X 2 | TIRA X 1 | VE X | APAGA X")
+    st.write("")
+    adicionar = st.button("Adicionar", use_container_width=True)
+
+if adicionar and cmd_input:
+    if cmd_input.upper().startswith("RODAR"):
+        # Executa tudo que foi acumulado
+        st.session_state.saida = []
+        for linha in st.session_state.comandos:
+            executar_linha(linha)
+    else:
+        st.session_state.comandos.append(cmd_input)
+    st.rerun()
+
+st.subheader("Fila de Comandos")
+st.code("\n".join(st.session_state.comandos) if st.session_state.comandos else "Vazia", language="text")
+
+if st.button("Limpar Tudo"):
+    st.session_state.memoria = {}
+    st.session_state.comandos = []
+    st.session_state.saida = []
+    st.rerun()
+
+st.subheader("Saída")
+for linha in st.session_state.saida:
+    st.write(linha)
