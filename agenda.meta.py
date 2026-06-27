@@ -37,7 +37,6 @@ with tab1:
     st.subheader("Adicionar Novo Contato")
     nome = st.text_input("Nome", key="add_nome")
     telefone = st.text_input("Telefone", key="add_tel")
-    email = st.text_input("Email", key="add_email")
     foto = st.file_uploader("Foto do Contato", type=["png", "jpg", "jpeg"], key="add_foto")
 
     if st.button("Salvar Contato"):
@@ -53,7 +52,6 @@ with tab1:
 
                 st.session_state.contatos[nome] = {
                     "telefone": telefone,
-                    "email": email,
                     "foto": caminho_foto
                 }
                 salvar_contatos(st.session_state.contatos)
@@ -75,7 +73,7 @@ with tab2:
                 with col2:
                     st.write(f"**Nome:** {nome}")
                     st.write(f"**Telefone:** {dados['telefone']}")
-                    st.write(f"**Email:** {dados['email']}")
+      
     else:
         st.info("Nenhum contato cadastrado.")
 
@@ -87,7 +85,7 @@ with tab3:
         resultados = {k:v for k,v in st.session_state.contatos.items() if termo.lower() in k.lower()}
         if resultados:
             for nome, dados in resultados.items():
-                st.write(f"**{nome}** | Tel: {dados['telefone']} | Email: {dados['email']}")
+                st.write(f"**{nome}** | Tel: {dados['telefone']} 
                 if dados["foto"] and os.path.exists(dados["foto"]):
                     st.image(dados["foto"], width=80)
         else:
