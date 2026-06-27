@@ -1,57 +1,157 @@
 import streamlit as st
 
-if 'produtos' not in st.session_state:
-    st.session_state.produtos = []
+# ==========================
+# CONFIGURAÇÃO
+# ==========================
 
+st.set_page_config(page_title="Sistema de Estoque", layout="wide")
 st.title("📦 Sistema de Estoque")
 
-aba1, aba2, aba3, aba4 = st.tabs(["Adicionar", "Listar", "Buscar", "Remover"])
+# Inicializa estoque na sessão
+if "estoque" not in st.session_state:
+    st.session_state.estoque = []
 
-with aba1:
-    st.subheader("Adicionar Produto")
-    nome = st.text_input("Nome do produto", key="nome_prod")
-    quantidade = st.number_input("Quantidade", min_value=0, step=1, key="qtd_prod")
-    preco = st.number_input("Preço R$", min_value=0.0, step=0.01, format="%.2f", key="preco_prod")
 
-    if st.button("Cadastrar Produto"):
-        if nome == "":
-            st.error("Erro: nome não pode ser vazio.")
-        else:
-            st.session_state.produtos.append({"nome": nome, "quantidade": quantidade, "preco": preco})
-            st.success("Produto cadastrado com sucesso!")
+# ==========================
+# FUNÇÕES
+# ==========================
 
-with aba2:
-    st.subheader("Lista de Produtos")
-    if not st.session_state.produtos:
-        st.info("Nenhum produto cadastrado.")
+def adicionar_produto(nome, quantidade, preco):
+
+    if nome.strip() == "":
+        return "Erro: nome vazio"
+
+    if quantidade == "" or preco == "":
+        return "Erro: quantidade ou preço vazio"
+
+    try:
+        quantidade = int(quantidade)
+        preco = float(preco)
+    except ValueError:
+        return "Erro: quantidade ou preço inválido"
+
+    produto = {
+        "nome": nome,
+        "quantidade": quantidade,
+        "preco": preco
+    }
+
+    st.session_state.estoque.append(produto)
+
+    return "Produto adicionado com sucesso"
+
+
+def listar_produtos():
+
+    return st.session_state.estoque
+
+
+def buscar_produto(nome):
+
+    for produto in st.session_state.estoque:
+        if produto["nome"].lower() == nome.lower():
+            return produto
+
+    return None
+
+
+def remover_produto(nome):
+
+    for produto in st.session_state.estoque:
+        if produto["nome"].lower() == nome.lower():
+            st.session_state.estoque.remove(produto)
+            return True
+
+    return False
+
+
+# ==========================
+# MENU
+# ==========================
+
+menu = st.sidebar.selectbox(
+    "Menu",
+    ["Adicionar", "Listar", "Buscar", "Remover", "Sair"]
+)
+
+# ==========================
+# ADICIONAR
+# ==========================
+
+if menu == "Adicionar":
+
+    st.subheader("➕ Adicionar Produto")
+
+    nome = st.text_input("Nome do produto")
+    quantidade = st.text_input("Quantidade")
+    preco = st.text_input("Preço")
+
+    if st.button("Salvar"):
+
+        resultado = adicionar_produto(nome, quantidade, preco)
+        st.write(resultado)
+
+# ==========================
+# LISTAR
+# ==========================
+
+elif menu == "Listar":
+
+    st.subheader("📋 Lista de Produtos")
+
+    produtos = listar_produtos()
+
+    if len(produtos) == 0:
+        st.info("Nenhum produto cadastrado")
     else:
-        for p in st.session_state.produtos:
-            st.write("--------------------")
-            st.write(f"**Nome:** {p['nome']}")
-            st.write(f"**Quantidade:** {p['quantidade']}")
-            st.write(f"**Preço:** R$ {p['preco']:.2f}")
+        for i, p in enumerate(produtos, start=1):
+            st.write(f"{i}. {p['nome']} | Qtd: {p['quantidade']} | Preço: R$ {p['preco']}")
 
-with aba3:
-    st.subheader("Buscar Produto")
-    nome_busca = st.text_input("Digite o nome do produto", key="busca_prod")
+
+# ==========================
+# BUSCAR
+# ==========================
+
+elif menu == "Buscar":
+
+    st.subheader("🔎 Buscar Produto")
+
+    nome = st.text_input("Digite o nome")
+
     if st.button("Buscar"):
-        encontrado = [p for p in st.session_state.produtos if p["nome"].lower() == nome_busca.lower()]
-        if encontrado:
-            p = encontrado[0]
-            st.success("Produto encontrado")
-            st.write(f"**Nome:** {p['nome']}")
-            st.write(f"**Quantidade:** {p['quantidade']}")
-            st.write(f"**Preço:** R$ {p['preco']:.2f}")
-        else:
-            st.warning("Produto não encontrado")
 
-with aba4:
-    st.subheader("Remover Produto")
-    nome_remover = st.text_input("Digite o nome do produto", key="remove_prod")
-    if st.button("Remover"):
-        antes = len(st.session_state.produtos)
-        st.session_state.produtos = [p for p in st.session_state.produtos if p["nome"].lower()!= nome_remover.lower()]
-        if len(st.session_state.produtos) < antes:
-            st.success("Produto removido com sucesso!")
+        resultado = buscar_produto(nome)
+
+        if resultado:
+            st.success("Produto encontrado")
+            st.write(resultado)
         else:
-            st.warning("Produto não encontrado")
+            st.error("Produto não encontrado")
+
+
+# ==========================
+# REMOVER
+# ==========================
+
+elif menu == "Remover":
+
+    st.subheader("❌ Remover Produto")
+
+    nome = st.text_input("Digite o nome do produto")
+
+    if st.button("Remover"):
+
+        resultado = remover_produto(nome)
+
+        if resultado:
+            st.success("Produto removido com sucesso")
+        else:
+            st.error("Produto não encontrado")
+
+
+# ==========================
+# SAIR
+# ==========================
+
+elif menu == "Sair":
+    st.warning("Feche a aba do navegador para sair")
