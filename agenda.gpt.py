@@ -1,62 +1,200 @@
 import streamlit as st
 import json
 import os
+from pathlib import Path
+import shutil
 
-ARQUIVO = "contatos.json"
+# ==========================
+# CONFIGURAÇÕES
+# ==========================
+
+ARQUIVO_CONTATOS = "contatos.json"
+PASTA_FOTOS = "fotos"
+
+os.makedirs(PASTA_FOTOS, exist_ok=True)
+
+st.set_page_config(
+    page_title="Agenda de Contatos",
+    page_icon="📒",
+    layout="wide"
+)
+
+
+# ==========================
+# FUNÇÕES
+# ==========================
 
 def carregar_contatos():
-    if os.path.exists(ARQUIVO):
-        with open(ARQUIVO, "r", encoding="utf-8") as arquivo:
+    if not os.path.exists(ARQUIVO_CONTATOS):
+        return []
+
+    try:
+        with open(ARQUIVO_CONTATOS, "r", encoding="utf-8") as arquivo:
             return json.load(arquivo)
-    return []
+    except:
+        return []
+
 
 def salvar_contatos(contatos):
-    with open(ARQUIVO, "w", encoding="utf-8") as arquivo:
-        json.dump(contatos, arquivo, ensure_ascii=False, indent=4)
+    with open(ARQUIVO_CONTATOS, "w", encoding="utf-8") as arquivo:
+        json.dump(
+            contatos,
+            arquivo,
+            indent=4,
+            ensure_ascii=False
+        )
 
-st.title("📒 Agenda de Contatos")
 
 contatos = carregar_contatos()
 
-aba1, aba2, aba3, aba4 = st.tabs(["Adicionar", "Listar", "Buscar", "Remover"])
+st.title("📒 Agenda de Contatos")
 
-with aba1:
-    st.subheader("Adicionar Contato")
-    nome = st.text_input("Nome")
-    telefone = st.text_input("Telefone")
-    foto = st.text_input("Caminho da foto")
-    if st.button("Salvar Contato"):
-        if nome == "":
-            st.error("Nome não pode ser Vazio")
-        else:
-            contatos.append({"nome": nome, "telefone": telefone, "foto": foto})
-            salvar_contatos(contatos)
-            st.success("Contato adicionado com sucesso!")
+st.subheader("Adicionar contato")
 
-with aba2:
-    st.subheader("Lista de Contatos")
-    if not contatos:
-        st.info("Nenhum contato cadastrado.")
-    for i, c in enumerate(contatos, start=1):
-        st.write(f"**Contato {i}**")
-        st.write(f"Nome: {c['nome']}")
-        st.write(f"Telefone: {c['telefone']}")
-        st.write(f"Foto: {c['foto']}")
+nome = st.text_input("Nome")
 
-with aba3:
-    st.subheader("Buscar Contato")
-    termo = st.text_input("Digite o nome para buscar")
-    if st.button("Buscar"):
-        encontrados = [c for c in contatos if termo.lower() in c["nome"].lower()]
-        if not encontrados:
-            st.warning("Nenhum contato encontrado.")
-        for c in encontrados:
-            st.write(f"Nome: {c['nome']} | Tel: {c['telefone']}")
+telefone = st.text_input("Telefone")
 
-with aba4:
-    st.subheader("Remover Contato")
-    nome_remover = st.text_input("Digite o nome do contato para remover")
-    if st.button("Remover"):
-        contatos = [c for c in contatos if c["nome"].lower() != nome_remover.lower()]
-        salvar_contatos(contatos)
-        st.success("Contato removido se existia.")
+email = st.text_input("E-mail")
+
+foto = st.file_uploader(
+    "Foto",
+    type=["png", "jpg", "jpeg"]
+)
+
+
+if st.button("Salvar contato"):
+
+    if nome.strip() == "":
+        st.error("Informe o nome.")
+        st.stop()
+
+    caminho_foto = ""
+
+    if foto is not None:
+
+        destino = os.path.join(
+            PASTA_FOTOS,
+            foto.name
+        )
+
+        with open(destino, "wb") as arquivo:
+            arquivo.write(foto.getbuffer())
+
+        caminho_foto = destino
+
+    novo = {
+        "nome": nome,
+        "telefone": telefone,
+        "email": email,
+        "foto": caminho_foto
+    }
+
+    contatos.append(novo)
+
+    salvar_contatos(contatos)
+
+    st.success("Contato salvo com sucesso!")
+
+    st.rerun()
+
+
+st.divider()
+
+st.subheader("Buscar contato")
+
+pesquisa = st.text_input("Digite um nome para pesquisar")
+
+if pesquisa:
+
+    contatos_filtrados = []
+
+    for contato in contatos:
+
+        if pesquisa.lower() in contato["nome"].lower():
+            contatos_filtrados.append(contato)
+
+else:
+
+    contatos_filtrados = contatos
+
+
+# ==========================
+# LISTAGEM DOS CONTATOS
+# ==========================
+
+st.divider()
+
+st.subheader("Lista de Contatos")
+
+if len(contatos_filtrados) == 0:
+
+    st.info("Nenhum contato encontrado.")
+
+else:
+
+    for indice, contato in enumerate(contatos_filtrados):
+
+        with st.container(border=True):
+
+            col1, col2 = st.columns([1, 3])
+
+            with col1:
+
+                if (
+                    contato["foto"] != ""
+                    and os.path.exists(contato["foto"])
+                ):
+                    st.image(
+                        contato["foto"],
+                        width=150
+                    )
+                else:
+                    st.write("Sem foto")
+
+            with col2:
+
+                st.markdown(
+                    f"### {contato['nome']}"
+                )
+
+                st.write(
+                    f"**Telefone:** {contato['telefone']}"
+                )
+
+                st.write(
+                    f"**E-mail:** {contato['email']}"
+                )
+
+                if st.button(
+                    "🗑️ Remover",
+                    key=f"remover_{indice}"
+                ):
+
+                    if (
+                        contato["foto"] != ""
+                        and os.path.exists(contato["foto"])
+                    ):
+                        try:
+                            os.remove(contato["foto"])
+                        except:
+                            pass
+
+                    contatos.remove(contato)
+
+                    salvar_contatos(contatos)
+
+                    st.success(
+                        "Contato removido com sucesso!"
+                    )
+
+                    st.rerun()
+
+# ==========================
+# RODAPÉ
+# ==========================
+
+st.divider()
+
+st.caption("Agenda de Contatos desenvolvida em Python + Streamlit")
+
